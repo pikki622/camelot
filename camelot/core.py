@@ -98,10 +98,14 @@ class TextEdges(object):
         """Returns the index of an existing text edge using
         the specified x coordinate and alignment.
         """
-        for i, te in enumerate(self._textedges[align]):
-            if np.isclose(te.x, x_coord, atol=0.5):
-                return i
-        return None
+        return next(
+            (
+                i
+                for i, te in enumerate(self._textedges[align])
+                if np.isclose(te.x, x_coord, atol=0.5)
+            ),
+            None,
+        )
 
     def add(self, textline, align):
         """Adds a new text edge to the current dict."""
@@ -361,24 +365,19 @@ class Table(object):
     @property
     def data(self):
         """Returns two-dimensional list of strings in table."""
-        d = []
-        for row in self.cells:
-            d.append([cell.text.strip() for cell in row])
-        return d
+        return [[cell.text.strip() for cell in row] for row in self.cells]
 
     @property
     def parsing_report(self):
         """Returns a parsing report with %accuracy, %whitespace,
         table number on page and page number.
         """
-        # pretty?
-        report = {
+        return {
             "accuracy": round(self.accuracy, 2),
             "whitespace": round(self.whitespace, 2),
             "order": self.order,
             "page": self.page,
         }
-        return report
 
     def set_all_edges(self):
         """Sets all table edges to True."""
@@ -423,43 +422,23 @@ class Table(object):
             J = j[0]
             if i == [0]:  # only left edge
                 L = i[0]
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[J][L].left = True
-                        J += 1
-                else:
-                    K = len(self.rows)
-                    while J < K:
-                        self.cells[J][L].left = True
-                        J += 1
-            elif i == []:  # only right edge
+                K = k[0] if k else len(self.rows)
+                while J < K:
+                    self.cells[J][L].left = True
+                    J += 1
+            elif not i:  # only right edge
                 L = len(self.cols) - 1
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[J][L].right = True
-                        J += 1
-                else:
-                    K = len(self.rows)
-                    while J < K:
-                        self.cells[J][L].right = True
-                        J += 1
+                K = k[0] if k else len(self.rows)
+                while J < K:
+                    self.cells[J][L].right = True
+                    J += 1
             else:  # both left and right edges
                 L = i[0]
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[J][L].left = True
-                        self.cells[J][L - 1].right = True
-                        J += 1
-                else:
-                    K = len(self.rows)
-                    while J < K:
-                        self.cells[J][L].left = True
-                        self.cells[J][L - 1].right = True
-                        J += 1
-
+                K = k[0] if k else len(self.rows)
+                while J < K:
+                    self.cells[J][L].left = True
+                    self.cells[J][L - 1].right = True
+                    J += 1
         for h in horizontal:
             # find closest y coord
             # iterate over x coords and find closest start and end points
@@ -483,43 +462,23 @@ class Table(object):
             J = j[0]
             if i == [0]:  # only top edge
                 L = i[0]
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[L][J].top = True
-                        J += 1
-                else:
-                    K = len(self.cols)
-                    while J < K:
-                        self.cells[L][J].top = True
-                        J += 1
-            elif i == []:  # only bottom edge
+                K = k[0] if k else len(self.cols)
+                while J < K:
+                    self.cells[L][J].top = True
+                    J += 1
+            elif not i:  # only bottom edge
                 L = len(self.rows) - 1
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[L][J].bottom = True
-                        J += 1
-                else:
-                    K = len(self.cols)
-                    while J < K:
-                        self.cells[L][J].bottom = True
-                        J += 1
+                K = k[0] if k else len(self.cols)
+                while J < K:
+                    self.cells[L][J].bottom = True
+                    J += 1
             else:  # both top and bottom edges
                 L = i[0]
-                if k:
-                    K = k[0]
-                    while J < K:
-                        self.cells[L][J].top = True
-                        self.cells[L - 1][J].bottom = True
-                        J += 1
-                else:
-                    K = len(self.cols)
-                    while J < K:
-                        self.cells[L][J].top = True
-                        self.cells[L - 1][J].bottom = True
-                        J += 1
-
+                K = k[0] if k else len(self.cols)
+                while J < K:
+                    self.cells[L][J].top = True
+                    self.cells[L - 1][J].bottom = True
+                    J += 1
         return self
 
     def set_border(self):
@@ -545,13 +504,27 @@ class Table(object):
                 if cell.bound == 4:
                     continue
                 elif cell.bound == 3:
-                    if not left and (right and top and bottom):
+                    if (
+                        not left
+                        and right
+                        and top
+                        and bottom
+                        or not right
+                        and left
+                        and top
+                        and bottom
+                    ):
                         cell.hspan = True
-                    elif not right and (left and top and bottom):
-                        cell.hspan = True
-                    elif not top and (left and right and bottom):
-                        cell.vspan = True
-                    elif not bottom and (left and right and top):
+                    elif (
+                        not top
+                        and left
+                        and right
+                        and bottom
+                        or not bottom
+                        and left
+                        and right
+                        and top
+                    ):
                         cell.vspan = True
                 elif cell.bound == 2:
                     if left and right and (not top and not bottom):
@@ -574,8 +547,12 @@ class Table(object):
             Output filepath.
 
         """
-        kw = {"encoding": "utf-8", "index": False, "header": False, "quoting": 1}
-        kw.update(kwargs)
+        kw = {
+            "encoding": "utf-8",
+            "index": False,
+            "header": False,
+            "quoting": 1,
+        } | kwargs
         self.df.to_csv(path, **kw)
 
     def to_json(self, path, **kwargs):
@@ -589,8 +566,7 @@ class Table(object):
             Output filepath.
 
         """
-        kw = {"orient": "records"}
-        kw.update(kwargs)
+        kw = {"orient": "records"} | kwargs
         json_string = self.df.to_json(**kw)
         with open(path, "w") as f:
             f.write(json_string)
@@ -609,8 +585,7 @@ class Table(object):
         kw = {
             "sheet_name": f"page-{self.page}-table-{self.order}",
             "encoding": "utf-8",
-        }
-        kw.update(kwargs)
+        } | kwargs
         writer = pd.ExcelWriter(path)
         self.df.to_excel(writer, **kw)
         writer.save()
@@ -656,8 +631,7 @@ class Table(object):
             Output filepath.
 
         """
-        kw = {"if_exists": "replace", "index": False}
-        kw.update(kwargs)
+        kw = {"if_exists": "replace", "index": False} | kwargs
         conn = sqlite3.connect(path)
         table_name = f"page-{self.page}-table-{self.order}"
         self.df.to_sql(table_name, conn, **kw)

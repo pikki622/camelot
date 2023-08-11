@@ -225,15 +225,13 @@ class Lattice(BaseParser):
 
         """
         for f in copy_text:
-            if f == "h":
-                for i in range(len(t.cells)):
-                    for j in range(len(t.cells[i])):
+            for i in range(len(t.cells)):
+                for j in range(len(t.cells[i])):
+                    if f == "h":
                         if t.cells[i][j].text.strip() == "":
                             if t.cells[i][j].hspan and not t.cells[i][j].left:
                                 t.cells[i][j].text = t.cells[i][j - 1].text
-            elif f == "v":
-                for i in range(len(t.cells)):
-                    for j in range(len(t.cells[i])):
+                    elif f == "v":
                         if t.cells[i][j].text.strip() == "":
                             if t.cells[i][j].vspan and not t.cells[i][j].top:
                                 t.cells[i][j].text = t.cells[i - 1][j].text
@@ -314,12 +312,10 @@ class Lattice(BaseParser):
         )
 
     def _generate_columns_and_rows(self, table_idx, tk):
-        # select elements which lie within table_bbox
-        t_bbox = {}
         v_s, h_s = segments_in_bbox(
             tk, self.vertical_segments, self.horizontal_segments
         )
-        t_bbox["horizontal"] = text_in_bbox(tk, self.horizontal_text)
+        t_bbox = {"horizontal": text_in_bbox(tk, self.horizontal_text)}
         t_bbox["vertical"] = text_in_bbox(tk, self.vertical_text)
 
         t_bbox["horizontal"].sort(key=lambda x: (-x.y0, x.x0))
@@ -344,7 +340,7 @@ class Lattice(BaseParser):
         v_s = kwargs.get("v_s")
         h_s = kwargs.get("h_s")
         if v_s is None or h_s is None:
-            raise ValueError("No segments found on {}".format(self.rootname))
+            raise ValueError(f"No segments found on {self.rootname}")
 
         table = Table(cols, rows)
         # set table edges to True using ver+hor lines
@@ -391,8 +387,7 @@ class Lattice(BaseParser):
         table.page = int(os.path.basename(self.rootname).replace("page-", ""))
 
         # for plotting
-        _text = []
-        _text.extend([(t.x0, t.y0, t.x1, t.y1) for t in self.horizontal_text])
+        _text = [(t.x0, t.y0, t.x1, t.y1) for t in self.horizontal_text]
         _text.extend([(t.x0, t.y0, t.x1, t.y1) for t in self.vertical_text])
         table._text = _text
         table._image = (self.image, self.table_bbox_unscaled)
@@ -404,18 +399,15 @@ class Lattice(BaseParser):
     def extract_tables(self, filename, suppress_stdout=False, layout_kwargs={}):
         self._generate_layout(filename, layout_kwargs)
         if not suppress_stdout:
-            logger.info("Processing {}".format(os.path.basename(self.rootname)))
+            logger.info(f"Processing {os.path.basename(self.rootname)}")
 
         if not self.horizontal_text:
             if self.images:
                 warnings.warn(
-                    "{} is image-based, camelot only works on"
-                    " text-based pages.".format(os.path.basename(self.rootname))
+                    f"{os.path.basename(self.rootname)} is image-based, camelot only works on text-based pages."
                 )
             else:
-                warnings.warn(
-                    "No tables found on {}".format(os.path.basename(self.rootname))
-                )
+                warnings.warn(f"No tables found on {os.path.basename(self.rootname)}")
             return []
 
         self.backend.convert(self.filename, self.imagename)

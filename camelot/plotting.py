@@ -131,7 +131,7 @@ class PlotMethods(object):
                     )
                 )
 
-        for t in table_bbox.keys():
+        for t in table_bbox:
             ax.add_patch(
                 patches.Rectangle(
                     (t[0], t[1]), t[2] - t[0], t[3] - t[1], fill=False, color="red"

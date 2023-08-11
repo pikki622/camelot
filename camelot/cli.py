@@ -182,7 +182,7 @@ def lattice(c, *args, **kwargs):
     quiet = conf.pop("quiet")
     plot_type = kwargs.pop("plot_type")
     filepath = kwargs.pop("filepath")
-    kwargs.update(conf)
+    kwargs |= conf
 
     table_regions = list(kwargs["table_regions"])
     kwargs["table_regions"] = None if not table_regions else table_regions
@@ -192,15 +192,14 @@ def lattice(c, *args, **kwargs):
     kwargs["copy_text"] = None if not copy_text else copy_text
     kwargs["shift_text"] = list(kwargs["shift_text"])
 
-    if plot_type is not None:
-        if not _HAS_MPL:
-            raise ImportError("matplotlib is required for plotting.")
-    else:
+    if plot_type is None:
         if output is None:
             raise click.UsageError("Please specify output file path using --output")
         if f is None:
             raise click.UsageError("Please specify output file format using --format")
 
+    elif not _HAS_MPL:
+        raise ImportError("matplotlib is required for plotting.")
     tables = read_pdf(
         filepath, pages=pages, flavor="lattice", suppress_stdout=quiet, **kwargs
     )
@@ -274,7 +273,7 @@ def stream(c, *args, **kwargs):
     quiet = conf.pop("quiet")
     plot_type = kwargs.pop("plot_type")
     filepath = kwargs.pop("filepath")
-    kwargs.update(conf)
+    kwargs |= conf
 
     table_regions = list(kwargs["table_regions"])
     kwargs["table_regions"] = None if not table_regions else table_regions
@@ -283,15 +282,14 @@ def stream(c, *args, **kwargs):
     columns = list(kwargs["columns"])
     kwargs["columns"] = None if not columns else columns
 
-    if plot_type is not None:
-        if not _HAS_MPL:
-            raise ImportError("matplotlib is required for plotting.")
-    else:
+    if plot_type is None:
         if output is None:
             raise click.UsageError("Please specify output file path using --output")
         if f is None:
             raise click.UsageError("Please specify output file format using --format")
 
+    elif not _HAS_MPL:
+        raise ImportError("matplotlib is required for plotting.")
     tables = read_pdf(
         filepath, pages=pages, flavor="stream", suppress_stdout=quiet, **kwargs
     )

@@ -127,20 +127,19 @@ class PDFHandler(object):
             if rotation != "":
                 fpath_new = "".join([froot.replace("page", "p"), "_rotated", fext])
                 os.rename(fpath, fpath_new)
-                instream = open(fpath_new, "rb")
-                infile = PdfReader(instream, strict=False)
-                if infile.is_encrypted:
-                    infile.decrypt(self.password)
-                outfile = PdfWriter()
-                p = infile.pages[0]
-                if rotation == "anticlockwise":
-                    p.rotate(90)
-                elif rotation == "clockwise":
-                    p.rotate(-90)
-                outfile.add_page(p)
-                with open(fpath, "wb") as f:
-                    outfile.write(f)
-                instream.close()
+                with open(fpath_new, "rb") as instream:
+                    infile = PdfReader(instream, strict=False)
+                    if infile.is_encrypted:
+                        infile.decrypt(self.password)
+                    outfile = PdfWriter()
+                    p = infile.pages[0]
+                    if rotation == "anticlockwise":
+                        p.rotate(90)
+                    elif rotation == "clockwise":
+                        p.rotate(-90)
+                    outfile.add_page(p)
+                    with open(fpath, "wb") as f:
+                        outfile.write(f)
 
     def parse(
         self, flavor="lattice", suppress_stdout=False, layout_kwargs={}, **kwargs

@@ -22,19 +22,17 @@ class ImageConversionBackend(object):
         except Exception as e:
             import sys
 
-            if self.use_fallback:
-                for fallback in self.fallbacks:
-                    try:
-                        converter = BACKENDS[fallback]()
-                        converter.convert(pdf_path, png_path)
-                    except Exception as e:
-                        raise type(e)(
-                            str(e) + f" with image conversion backend '{fallback}'"
-                        ).with_traceback(sys.exc_info()[2])
-                        continue
-                    else:
-                        break
-            else:
+            if not self.use_fallback:
                 raise type(e)(
-                    str(e) + f" with image conversion backend '{self.backend}'"
+                    f"{str(e)} with image conversion backend '{self.backend}'"
                 ).with_traceback(sys.exc_info()[2])
+            for fallback in self.fallbacks:
+                try:
+                    converter = BACKENDS[fallback]()
+                    converter.convert(pdf_path, png_path)
+                except Exception as e:
+                    raise type(e)(
+                        f"{str(e)} with image conversion backend '{fallback}'"
+                    ).with_traceback(sys.exc_info()[2])
+                else:
+                    break

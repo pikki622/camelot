@@ -41,7 +41,7 @@ dev_requires = [
 ]
 
 all_requires = base_requires + plot_requires
-dev_requires = dev_requires + all_requires
+dev_requires += all_requires
 
 
 def setup_package():

@@ -207,8 +207,7 @@ def scale_pdf(k, factors):
     y1 = scale(abs(translate(-pdf_y, y1)), scaling_factor_y)
     x2 = scale(x2, scaling_factor_x)
     y2 = scale(abs(translate(-pdf_y, y2)), scaling_factor_y)
-    knew = (int(x1), int(y1), int(x2), int(y2))
-    return knew
+    return int(x1), int(y1), int(x2), int(y2)
 
 
 def scale_image(tables, v_segments, h_segments, factors):
@@ -366,7 +365,7 @@ def text_in_bbox(bbox, text):
     ]
 
     # Avoid duplicate text by discarding overlapping boxes
-    rest = {t for t in t_bbox}
+    rest = set(t_bbox)
     for ba in t_bbox:
         for bb in rest.copy():
             if ba == bb:
@@ -376,9 +375,7 @@ def text_in_bbox(bbox, text):
                 if (bbox_intersection_area(ba, bb) / bbox_area(ba)) > 0.8:
                     if bbox_longer(bb, ba):
                         rest.discard(ba)
-    unique_boxes = list(rest)
-
-    return unique_boxes
+    return list(rest)
 
 
 def bbox_intersection_area(ba, bb) -> float:
@@ -403,8 +400,7 @@ def bbox_intersection_area(ba, bb) -> float:
     if x_right < x_left or y_bottom > y_top:
         return 0.0
 
-    intersection_area = (x_right - x_left) * (y_top - y_bottom)
-    return intersection_area
+    return (x_right - x_left) * (y_top - y_bottom)
 
 
 def bbox_area(bb) -> float:
@@ -500,10 +496,9 @@ def text_strip(text, strip=""):
     if not strip:
         return text
 
-    stripped = re.sub(
+    return re.sub(
         fr"[{''.join(map(re.escape, strip))}]", "", text, flags=re.UNICODE
     )
-    return stripped
 
 
 # TODO: combine the following functions into a TextProcessor class which
@@ -547,16 +542,14 @@ def flag_font_size(textline, direction, strip_text=""):
         flist = []
         min_size = min(l)
         for key, chars in groupby(d, itemgetter(1)):
+            fchars = [t[0] for t in chars]
             if key == min_size:
-                fchars = [t[0] for t in chars]
                 if "".join(fchars).strip():
                     fchars.insert(0, "<s>")
                     fchars.append("</s>")
                     flist.append("".join(fchars))
-            else:
-                fchars = [t[0] for t in chars]
-                if "".join(fchars).strip():
-                    flist.append("".join(fchars))
+            elif "".join(fchars).strip():
+                flist.append("".join(fchars))
         fstring = "".join(flist)
     else:
         fstring = "".join([t.get_text() for t in textline])
@@ -733,7 +726,7 @@ def get_table_index(
                     lt_col_overlap.append(abs(left - right) / abs(c[0] - c[1]))
                 else:
                     lt_col_overlap.append(-1)
-            if len(list(filter(lambda x: x != -1, lt_col_overlap))) == 0:
+            if not list(filter(lambda x: x != -1, lt_col_overlap)):
                 text = t.get_text().strip("\n")
                 text_range = (t.x0, t.x1)
                 col_range = (table.cols[0][0], table.cols[-1][1])
@@ -766,20 +759,19 @@ def get_table_index(
             ),
             error,
         )
+    if flag_size:
+        return (
+            [
+                (
+                    r_idx,
+                    c_idx,
+                    flag_font_size(t._objs, direction, strip_text=strip_text),
+                )
+            ],
+            error,
+        )
     else:
-        if flag_size:
-            return (
-                [
-                    (
-                        r_idx,
-                        c_idx,
-                        flag_font_size(t._objs, direction, strip_text=strip_text),
-                    )
-                ],
-                error,
-            )
-        else:
-            return [(r_idx, c_idx, text_strip(t.get_text(), strip_text))], error
+        return [(r_idx, c_idx, text_strip(t.get_text(), strip_text))], error
 
 
 def compute_accuracy(error_weights):
@@ -801,7 +793,7 @@ def compute_accuracy(error_weights):
     SCORE_VAL = 100
     try:
         score = 0
-        if sum([ew[0] for ew in error_weights]) != SCORE_VAL:
+        if sum(ew[0] for ew in error_weights) != SCORE_VAL:
             raise ValueError("Sum of weights should be equal to 100.")
         for ew in error_weights:
             weight = ew[0] / len(ew[1])
@@ -832,8 +824,7 @@ def compute_whitespace(d):
         for j in i:
             if j.strip() == "":
                 whitespace += 1
-    whitespace = 100 * (whitespace / float(len(d) * len(d[0])))
-    return whitespace
+    return 100 * (whitespace / float(len(d) * len(d[0])))
 
 
 def get_page_layout(

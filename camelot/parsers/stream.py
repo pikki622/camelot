@@ -94,12 +94,11 @@ class Stream(BaseParser):
             Tuple (x0, y0, x1, y1) in pdf coordinate space.
 
         """
-        xmin = min([t.x0 for direction in t_bbox for t in t_bbox[direction]])
-        ymin = min([t.y0 for direction in t_bbox for t in t_bbox[direction]])
-        xmax = max([t.x1 for direction in t_bbox for t in t_bbox[direction]])
-        ymax = max([t.y1 for direction in t_bbox for t in t_bbox[direction]])
-        text_bbox = (xmin, ymin, xmax, ymax)
-        return text_bbox
+        xmin = min(t.x0 for direction in t_bbox for t in t_bbox[direction])
+        ymin = min(t.y0 for direction in t_bbox for t in t_bbox[direction])
+        xmax = max(t.x1 for direction in t_bbox for t in t_bbox[direction])
+        ymax = max(t.y1 for direction in t_bbox for t in t_bbox[direction])
+        return xmin, ymin, xmax, ymax
 
     @staticmethod
     def _group_rows(text, row_tol=2):
@@ -170,16 +169,15 @@ class Stream(BaseParser):
                         merged[-1] = (lower_bound, upper_bound)
                     else:
                         merged.append(higher)
-                elif column_tol < 0:
-                    if higher[0] <= lower[1]:
-                        if np.isclose(higher[0], lower[1], atol=abs(column_tol)):
-                            merged.append(higher)
-                        else:
-                            upper_bound = max(lower[1], higher[1])
-                            lower_bound = min(lower[0], higher[0])
-                            merged[-1] = (lower_bound, upper_bound)
-                    else:
+                elif higher[0] <= lower[1]:
+                    if np.isclose(higher[0], lower[1], atol=abs(column_tol)):
                         merged.append(higher)
+                    else:
+                        upper_bound = max(lower[1], higher[1])
+                        lower_bound = min(lower[0], higher[0])
+                        merged[-1] = (lower_bound, upper_bound)
+                else:
+                    merged.append(higher)
         return merged
 
     @staticmethod
@@ -200,7 +198,7 @@ class Stream(BaseParser):
 
         """
         row_mids = [
-            sum([(t.y0 + t.y1) / 2 for t in r]) / len(r) if len(r) > 0 else 0
+            sum((t.y0 + t.y1) / 2 for t in r) / len(r) if len(r) > 0 else 0
             for r in rows_grouped
         ]
         rows = [(row_mids[i] + row_mids[i - 1]) / 2 for i in range(1, len(row_mids))]
@@ -258,8 +256,7 @@ class Stream(BaseParser):
         cols = [(cols[i][0] + cols[i - 1][1]) / 2 for i in range(1, len(cols))]
         cols.insert(0, text_x_min)
         cols.append(text_x_max)
-        cols = [(cols[i], cols[i + 1]) for i in range(0, len(cols) - 1)]
-        return cols
+        return [(cols[i], cols[i + 1]) for i in range(0, len(cols) - 1)]
 
     def _validate_columns(self):
         if self.table_areas is not None and self.columns is not None:
@@ -321,8 +318,7 @@ class Stream(BaseParser):
 
     def _generate_columns_and_rows(self, table_idx, tk):
         # select elements which lie within table_bbox
-        t_bbox = {}
-        t_bbox["horizontal"] = text_in_bbox(tk, self.horizontal_text)
+        t_bbox = {"horizontal": text_in_bbox(tk, self.horizontal_text)}
         t_bbox["vertical"] = text_in_bbox(tk, self.vertical_text)
 
         t_bbox["horizontal"].sort(key=lambda x: (-x.y0, x.x0))
@@ -345,50 +341,47 @@ class Stream(BaseParser):
             cols.insert(0, text_x_min)
             cols.append(text_x_max)
             cols = [(cols[i], cols[i + 1]) for i in range(0, len(cols) - 1)]
-        else:
-            # calculate mode of the list of number of elements in
-            # each row to guess the number of columns
-            if not len(elements):
-                cols = [(text_x_min, text_x_max)]
-            else:
-                ncols = max(set(elements), key=elements.count)
-                if ncols == 1:
-                    # if mode is 1, the page usually contains not tables
-                    # but there can be cases where the list can be skewed,
-                    # try to remove all 1s from list in this case and
-                    # see if the list contains elements, if yes, then use
-                    # the mode after removing 1s
-                    elements = list(filter(lambda x: x != 1, elements))
-                    if len(elements):
-                        ncols = max(set(elements), key=elements.count)
-                    else:
-                        warnings.warn(f"No tables found in table area {table_idx + 1}")
-                cols = [
-                    (t.x0, t.x1) for r in rows_grouped if len(r) == ncols for t in r
-                ]
-                cols = self._merge_columns(sorted(cols), column_tol=self.column_tol)
-                inner_text = []
-                for i in range(1, len(cols)):
-                    left = cols[i - 1][1]
-                    right = cols[i][0]
-                    inner_text.extend(
-                        [
-                            t
-                            for direction in self.t_bbox
-                            for t in self.t_bbox[direction]
-                            if t.x0 > left and t.x1 < right
-                        ]
-                    )
-                outer_text = [
-                    t
-                    for direction in self.t_bbox
-                    for t in self.t_bbox[direction]
-                    if t.x0 > cols[-1][1] or t.x1 < cols[0][0]
-                ]
-                inner_text.extend(outer_text)
-                cols = self._add_columns(cols, inner_text, self.row_tol)
-                cols = self._join_columns(cols, text_x_min, text_x_max)
+        elif len(elements):
+            ncols = max(set(elements), key=elements.count)
+            if ncols == 1:
+                # if mode is 1, the page usually contains not tables
+                # but there can be cases where the list can be skewed,
+                # try to remove all 1s from list in this case and
+                # see if the list contains elements, if yes, then use
+                # the mode after removing 1s
+                elements = list(filter(lambda x: x != 1, elements))
+                if len(elements):
+                    ncols = max(set(elements), key=elements.count)
+                else:
+                    warnings.warn(f"No tables found in table area {table_idx + 1}")
+            cols = [
+                (t.x0, t.x1) for r in rows_grouped if len(r) == ncols for t in r
+            ]
+            cols = self._merge_columns(sorted(cols), column_tol=self.column_tol)
+            inner_text = []
+            for i in range(1, len(cols)):
+                left = cols[i - 1][1]
+                right = cols[i][0]
+                inner_text.extend(
+                    [
+                        t
+                        for direction in self.t_bbox
+                        for t in self.t_bbox[direction]
+                        if t.x0 > left and t.x1 < right
+                    ]
+                )
+            outer_text = [
+                t
+                for direction in self.t_bbox
+                for t in self.t_bbox[direction]
+                if t.x0 > cols[-1][1] or t.x1 < cols[0][0]
+            ]
+            inner_text.extend(outer_text)
+            cols = self._add_columns(cols, inner_text, self.row_tol)
+            cols = self._join_columns(cols, text_x_min, text_x_max)
 
+        else:
+            cols = [(text_x_min, text_x_max)]
         return cols, rows
 
     def _generate_table(self, table_idx, cols, rows, **kwargs):
@@ -426,8 +419,7 @@ class Stream(BaseParser):
         table.page = int(os.path.basename(self.rootname).replace("page-", ""))
 
         # for plotting
-        _text = []
-        _text.extend([(t.x0, t.y0, t.x1, t.y1) for t in self.horizontal_text])
+        _text = [(t.x0, t.y0, t.x1, t.y1) for t in self.horizontal_text]
         _text.extend([(t.x0, t.y0, t.x1, t.y1) for t in self.vertical_text])
         table._text = _text
         table._image = None
